@@ -1,2 +1,2 @@
 # gosql
-A SQL implementation in Go
+A in-memory SQL implementation in Go
