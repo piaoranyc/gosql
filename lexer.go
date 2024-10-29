@@ -124,3 +124,70 @@ func lexNumeric(source string, ic cursor) (*token, cursor, bool) {
 		kind:  numericKind,
 	}, cur, true
 }
+
+func lexCharacterDelimited(source string, ic cursor, delimiter byte) (*token, cursor, bool) {
+	cur := ic
+	if len(source[cur.pointer:]) == 0 {
+		return nil, ic, false
+	}
+	if source[cur.pointer] != delimiter {
+		return nil, ic, false
+	}
+	cur.loc.col++
+	cur.pointer++
+	var value []byte
+	for ; cur.pointer < uint(len(source)); cur.pointer++ {
+		c := source[cur.pointer]
+		if c == delimiter {
+			if cur.pointer+1 >= uint(len(source)) || source[cur.pointer+1] != delimiter {
+				return &token{
+					value: string(value),
+					loc:   ic.loc,
+					kind:  stringKind,
+				}, cur, true
+			} else {
+				value = append(value, delimiter)
+				cur.pointer++
+				cur.loc.col++
+			}
+
+		}
+		value = append(value, c)
+		cur.loc.col++
+	}
+	return nil, ic, false
+}
+func lexString(source string, ic cursor) (*token, cursor, bool) {
+	return lexCharacterDelimited(source, ic, '\'')
+}
+
+//func lexSymbol(source string, ic cursor) (*token, cursor, bool) {
+//	cur := ic
+//	c := source[cur.pointer]
+//	cur.loc.col++
+//	cur.pointer++
+//	switch c {
+//	case '\n':
+//		cur.loc.line++
+//		cur.loc.col = 0
+//		fallthrough
+//	case '\t':
+//		fallthrough
+//	case ' ':
+//		return nil, cur, true
+//
+//	}
+//	symbols := []symbol{
+//		semicolonSymbol,
+//		asteriskSymbol,
+//		commaSymbol,
+//		leftparenSymbol,
+//		rightparenSymbol,
+//	}
+//	var options []string
+//	for _, s := range symbols {
+//		options = append(options, string(s))
+//	}
+//	longestMatch()
+//
+//}
