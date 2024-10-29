@@ -1,5 +1,7 @@
 package gosql
 
+import "strings"
+
 type location struct {
 	line uint
 	col  uint
@@ -18,6 +20,7 @@ const (
 	valuesKeyword keyword = "values"
 	intKeyword    keyword = "int"
 	textKeyword   keyword = "text"
+	whereKeyword  keyword = "where"
 )
 
 type symbol string
@@ -161,33 +164,111 @@ func lexString(source string, ic cursor) (*token, cursor, bool) {
 	return lexCharacterDelimited(source, ic, '\'')
 }
 
-//func lexSymbol(source string, ic cursor) (*token, cursor, bool) {
-//	cur := ic
-//	c := source[cur.pointer]
-//	cur.loc.col++
-//	cur.pointer++
-//	switch c {
-//	case '\n':
-//		cur.loc.line++
-//		cur.loc.col = 0
-//		fallthrough
-//	case '\t':
-//		fallthrough
-//	case ' ':
-//		return nil, cur, true
-//
-//	}
-//	symbols := []symbol{
-//		semicolonSymbol,
-//		asteriskSymbol,
-//		commaSymbol,
-//		leftparenSymbol,
-//		rightparenSymbol,
-//	}
-//	var options []string
-//	for _, s := range symbols {
-//		options = append(options, string(s))
-//	}
-//	longestMatch()
-//
-//}
+func longestMatch(source string, ic cursor, options []string) string {
+	var value []byte
+	var skipList []int
+	var match string
+
+	cur := ic
+	for cur.pointer < uint(len(source)) {
+		value = append(value, strings.ToLower(string(source[cur.pointer]))...)
+		cur.pointer++
+	match:
+		for i, option := range options {
+			for _, skip := range skipList {
+				if i == skip {
+					continue match
+				}
+			}
+			if option == string(value) {
+				skipList = append(skipList, i)
+				if len(option) > len(match) {
+					match = option
+				}
+				continue
+			}
+			sharePrefix := string(value) == option[:cur.pointer-ic.pointer]
+			tooLong := len(value) > len(options)
+			if tooLong || !sharePrefix {
+				skipList = append(skipList, i)
+			}
+		}
+
+		if len(skipList) == len(options) {
+			break
+		}
+	}
+	return match
+}
+
+func lexSymbol(source string, ic cursor) (*token, cursor, bool) {
+	cur := ic
+	c := source[cur.pointer]
+	cur.loc.col++
+	cur.pointer++
+	switch c {
+	case '\n':
+		cur.loc.line++
+		cur.loc.col = 0
+		fallthrough
+	case '\t':
+		fallthrough
+	case ' ':
+		return nil, cur, true
+
+	}
+	symbols := []symbol{
+		semicolonSymbol,
+		asteriskSymbol,
+		commaSymbol,
+		leftparenSymbol,
+		rightparenSymbol,
+	}
+	var options []string
+	for _, s := range symbols {
+		options = append(options, string(s))
+	}
+	match := longestMatch(source, ic, options)
+	if match == "" {
+		return nil, ic, false
+	}
+	cur.pointer = ic.pointer + uint(len(match))
+	cur.loc.col = ic.loc.col + uint(len(match))
+
+	return &token{
+		value: match,
+		loc:   ic.loc,
+		kind:  symbolKind,
+	}, cur, true
+}
+
+func lexKeyword(source string, ic cursor) (*token, cursor, bool) {
+	cur := ic
+	keywords := []keyword{
+		selectKeyword,
+		insertKeyword,
+		valuesKeyword,
+		tableKeyword,
+		createKeyword,
+		whereKeyword,
+		fromKeyword,
+		intoKeyword,
+		textKeyword,
+	}
+	var options []string
+	for _, s := range symbols {
+		options = append(options, string(s))
+	}
+	match := longestMatch(source, ic, options)
+	if match == "" {
+		return nil, ic, false
+	}
+	cur.pointer = ic.pointer + uint(len(match))
+	cur.loc.col = ic.loc.col + uint(len(match))
+
+	return &token{
+		value: match,
+		loc:   ic.loc,
+		kind:  symbolKind,
+	}, cur, true
+}
